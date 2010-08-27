@@ -56,6 +56,7 @@ module Hydra #:nodoc:
       @incomplete_files = @files.dup
       @workers = []
       @listeners = []
+      @stats = Hash.new(0)
       @event_listeners = Array(opts.fetch('listeners') { nil } )
       @event_listeners.select{|l| l.is_a? String}.each do |l|
         @event_listeners.delete_at(@event_listeners.index(l))
@@ -84,6 +85,10 @@ module Hydra #:nodoc:
 
       boot_workers worker_cfg
       process_messages
+
+      report_fields = [:tests, :assertions, :errors, :failures]
+      report = report_fields.map{|field| "#{field}: #{@stats[field]}"}.join(', ')
+      puts report
     end
 
     # Message handling
@@ -105,6 +110,12 @@ module Hydra #:nodoc:
 
     # Process the results coming back from the worker.
     def process_results(worker, message)
+      if message.stats
+        message.stats.each do |key, value|
+          @stats[key] += value
+        end
+      end
+
       if message.output =~ /ActiveRecord::StatementInvalid(.*)[Dd]eadlock/ or
          message.output =~ /PGError: ERROR(.*)[Dd]eadlock/ or
          message.output =~ /Mysql::Error: SAVEPOINT(.*)does not exist: ROLLBACK/ or

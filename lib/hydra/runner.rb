@@ -36,18 +36,24 @@ module Hydra #:nodoc:
 
       output = ""
       if file =~ /_spec.rb$/i
-        output = run_rspec_file(file)
+        output, stats = run_rspec_file(file)
+      elsif file =~ /_testspec.rb$/i
+        output, stats = run_test_spec_file(file)
       elsif file =~ /.feature$/i
-        output = run_cucumber_file(file)
+        output, stats = run_cucumber_file(file)
       elsif file =~ /.js$/i or file =~ /.json$/i
-        output = run_javascript_file(file)
+        output, stats = run_javascript_file(file)
       else
-        output = run_test_unit_file(file)
+        output, stats = run_test_unit_file(file)
       end
 
       output = "." if output == ""
 
-      @io.write Results.new(:output => output, :file => file)
+      @io.write Results.new(
+        :output => output,
+        :file   => file,
+        :stats  => stats
+      )
       return output
     end
 
@@ -99,8 +105,45 @@ module Hydra #:nodoc:
       rescue => ex
         output << ex.to_s
       end
+      stats = {
+        :tests      => @result.run_count,
+        :assertions => @result.assertion_count,
+        :failures   => @result.failure_count,
+        :errors     => @result.error_count,
+      }
 
-      return output.join("\n")
+      return output.join("\n"), stats
+    end
+
+    # Run all the test/spec file
+    def run_test_spec_file(file)
+      begin
+        require file
+      rescue LoadError => ex
+        trace "#{file} does not exist [#{ex.to_s}]"
+        return ex.to_s
+      end
+      output = []
+      @result = Test::Unit::TestResult.new
+      @result.add_listener(Test::Unit::TestResult::FAULT) do |value|
+        output << value
+      end
+
+      klasses = Runner.find_test_spec_classes_in_file(file)
+      begin
+        klasses.each{|klass| klass.suite.run(@result){|status, name| ;}}
+      rescue => ex
+        output << ex.to_s
+      end
+
+      stats = {
+        :tests      => @result.run_count,
+        :assertions => @result.assertion_count,
+        :failures   => @result.failure_count,
+        :errors     => @result.error_count,
+      }
+
+      return output.join("\n"), stats
     end
 
     # run all the Specs in an RSpec file (NOT IMPLEMENTED)
@@ -209,6 +252,14 @@ module Hydra #:nodoc:
       else
         return errors.join("\n")
       end
+    end
+
+    def self.find_test_spec_classes_in_file(f)
+      require f
+      ks = Test::Spec::CONTEXTS.values.map{|k| k.testcase}
+      Test::Spec::CONTEXTS.clear
+      Test::Spec::SHARED_CONTEXTS.clear
+      ks
     end
 
     # find all the test unit classes in a given file, so we can run their suites

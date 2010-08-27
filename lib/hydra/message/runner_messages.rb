@@ -14,8 +14,14 @@ module Hydra #:nodoc:
         attr_accessor :output
         # The file that was run
         attr_accessor :file
+        # Stats on the number of tests, assertions, errors and failures
+        attr_accessor :stats
         def serialize #:nodoc:
-          super(:output => @output, :file => @file)
+          super(
+            :output => @output,
+            :file   => @file,
+            :stats  => @stats
+          )
         end
         def handle(worker, runner) #:nodoc:
           worker.relay_results(self, runner)
