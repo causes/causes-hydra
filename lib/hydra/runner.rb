@@ -133,6 +133,7 @@ module Hydra #:nodoc:
       begin
         klasses.each{|klass| klass.suite.run(@result){|status, name| ;}}
       rescue => ex
+        output << `hostname`
         output << ex.to_s
       end
 
