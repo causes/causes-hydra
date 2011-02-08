@@ -96,6 +96,7 @@ module Hydra #:nodoc:
       output = []
       @result = Test::Unit::TestResult.new
       @result.add_listener(Test::Unit::TestResult::FAULT) do |value|
+        output << `hostname`.chomp
         output << value
       end
 
@@ -103,6 +104,7 @@ module Hydra #:nodoc:
       begin
         klasses.each{|klass| klass.suite.run(@result){|status, name| ;}}
       rescue => ex
+        output << `hostname`.chomp
         output << ex.to_s
       end
       stats = {
@@ -126,6 +128,7 @@ module Hydra #:nodoc:
       output = []
       @result = Test::Unit::TestResult.new
       @result.add_listener(Test::Unit::TestResult::FAULT) do |value|
+        output << `hostname`.chomp
         output << value
       end
 
@@ -133,7 +136,7 @@ module Hydra #:nodoc:
       begin
         klasses.each{|klass| klass.suite.run(@result){|status, name| ;}}
       rescue => ex
-        output << `hostname`
+        output << `hostname`.chomp
         output << ex.to_s
       end
 
