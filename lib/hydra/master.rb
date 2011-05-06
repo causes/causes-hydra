@@ -1,6 +1,6 @@
 require 'hydra/hash'
 require 'open3'
-require 'tmpdir'
+require 'hydra/tmpdir'
 require 'erb'
 require 'yaml'
 
@@ -14,6 +14,7 @@ module Hydra #:nodoc:
     include Hydra::Messages::Master
     include Open3
     traceable('MASTER')
+    attr_reader :failed_files
 
     # Create a new Master
     #
@@ -54,6 +55,7 @@ module Hydra #:nodoc:
       @files = Array(opts.fetch('files') { nil })
       raise "No files, nothing to do" if @files.empty?
       @incomplete_files = @files.dup
+      @failed_files = []
       @workers = []
       @listeners = []
       @stats = Hash.new(0)
@@ -127,6 +129,9 @@ module Hydra #:nodoc:
         @incomplete_files.delete_at(@incomplete_files.index(message.file))
         trace "#{@incomplete_files.size} Files Remaining"
         @event_listeners.each{|l| l.file_end(message.file, message.output) }
+        unless message.output == '.'
+          @failed_files << message.file
+        end
         if @incomplete_files.empty?
           @workers.each do |worker|
             @event_listeners.each{|l| l.worker_end(worker) }
@@ -243,7 +248,7 @@ module Hydra #:nodoc:
     end
 
     def heuristic_file
-      @heuristic_file ||= File.join(Dir.tmpdir, 'hydra_heuristics.yml')
+      @heuristic_file ||= File.join(Dir.consistent_tmpdir, 'hydra_heuristics.yml')
     end
   end
 end

@@ -36,6 +36,8 @@ module Hydra #:nodoc:
     # files that may not play nice with others.
     attr_accessor :serial
 
+    attr_accessor :environment
+
     #
     # Search for the hydra config file
     def find_config_file
@@ -89,7 +91,8 @@ module Hydra #:nodoc:
         :verbose => @verbose,
         :autosort => @autosort,
         :files => @files,
-        :listeners => @listeners
+        :listeners => @listeners,
+        :environment => @environment
       }
       if @config
         @opts.merge!(:config => @config)
@@ -105,11 +108,14 @@ module Hydra #:nodoc:
     def define
       desc "Hydra Tests" + (@name == :hydra ? "" : " for #{@name}")
       task @name do
-        if Object.const_defined?('RAILS_ENV') && RAILS_ENV == 'development'
-          $stderr.puts %{WARNING: RAILS_ENV is "development". Make sure to set it properly (ex: "RAILS_ENV=test rake hydra")}
+        if Object.const_defined?('Rails') && Rails.env == 'development'
+          $stderr.puts %{WARNING: Rails Environment is "development". Make sure to set it properly (ex: "RAILS_ENV=test rake hydra")}
         end
 
-        Hydra::Master.new(@opts)
+        master = Hydra::Master.new(@opts)
+        unless master.failed_files.empty?
+          raise "Hydra: Not all tests passes"
+        end
       end
     end
   end
@@ -235,8 +241,9 @@ module Hydra #:nodoc:
     include Open3
     # Create a new hydra remote task with the given name.
     # The task will be named hydra:remote:<name>
-    def initialize(name)
+    def initialize(name, command=nil)
       @name = name
+      @command = command
       yield self if block_given?
       @config = find_config_file
       if @config
@@ -254,6 +261,7 @@ module Hydra #:nodoc:
         environment = config.fetch('environment') { 'test' }
         workers = config.fetch('workers') { [] }
         workers = workers.select{|w| w['type'] == 'ssh'}
+        @command = "RAILS_ENV=#{environment} rake #{@name}" unless @command
 
         $stdout.write "==== Hydra Running #{@name} ====\n"
         Thread.abort_on_exception = true
@@ -262,7 +270,7 @@ module Hydra #:nodoc:
         workers.each do |worker|
           @listeners << Thread.new do
             begin
-              @results[worker] = if run_task(worker, environment)
+              @results[worker] = if run_command(worker, @command)
                 "==== #{@name} passed on #{worker['connect']} ====\n"
               else
                 "==== #{@name} failed on #{worker['connect']} ====\nPlease see above for more details.\n"
@@ -278,13 +286,13 @@ module Hydra #:nodoc:
       end
     end
 
-    def run_task worker, environment
+    def run_command worker, command
       $stdout.write "==== Hydra Running #{@name} on #{worker['connect']} ====\n"
       ssh_opts = worker.fetch('ssh_opts') { '' }
       writer, reader, error = popen3("ssh -tt #{ssh_opts} #{worker['connect']} ")
       writer.write("cd #{worker['directory']}\n")
       writer.write "echo BEGIN HYDRA\n"
-      writer.write("RAILS_ENV=#{environment} rake #{@name}\n")
+      writer.write(command + "\r")
       writer.write "echo END HYDRA\n"
       writer.write("exit\n")
       writer.close

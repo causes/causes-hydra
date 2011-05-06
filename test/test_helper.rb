@@ -1,5 +1,7 @@
 require 'rubygems'
 require 'test/unit'
+gem 'shoulda', '2.10.3'
+gem 'rspec', '2.0.0.beta.19'
 require 'shoulda'
 require 'tmpdir'
 
@@ -12,11 +14,11 @@ Test::Unit.run = false
 
 class Test::Unit::TestCase
   def target_file
-    File.expand_path(File.join(Dir.tmpdir, 'hydra_test.txt'))
+    File.expand_path(File.join(Dir.consistent_tmpdir, 'hydra_test.txt'))
   end
   
   def alternate_target_file
-    File.expand_path(File.join(Dir.tmpdir, 'alternate_hydra_test.txt'))
+    File.expand_path(File.join(Dir.consistent_tmpdir, 'alternate_hydra_test.txt'))
   end
 
   def test_file
@@ -49,6 +51,10 @@ class Test::Unit::TestCase
 
   def json_file
     File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'json_data.json'))
+  end
+
+  def conflicting_test_file
+    File.expand_path(File.join(File.dirname(__FILE__), 'fixtures', 'conflicting.rb'))
   end
 end
 
