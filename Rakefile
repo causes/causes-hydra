@@ -4,7 +4,7 @@ require 'rake'
 begin
   require 'jeweler'
   Jeweler::Tasks.new do |gem|
-    gem.name = "hydra"
+    gem.name = "causes-hydra"
     gem.summary = %Q{Distributed testing toolkit}
     gem.description = %Q{Spread your tests over multiple machines to test your code faster.}
     gem.email = "nick@smartlogicsolutions.com"
